@@ -1,42 +1,81 @@
 package day6
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 )
 
 const WHITESPACE uint8 = 32
 
-func SumCephalodHomeWork(homework string) int {
-	lines := strings.Split(homework, "\n")
-	ops, lines := strings.Fields(lines[len(lines)-1]), lines[:len(lines)-1]	
-	var inEquation bool 
 
-	for col := range len(lines[0]) {
-		var digitsFound []byte
+func SolvePart1(input string) int{
+	var total int
+	equations := parseInput(input)
+	for _, equation := range equations {
+		solution := equation.Solve()
+		total += solution 
+	}
+	return total
+}
 
-		for row := range len(lines) {
-			b := lines[row][col]
-			if b != WHITESPACE {
-				digitsFound = append(digitsFound, b)
-			}
-		}
+func SolvePart2(input string) int {
+	// Step 1, parse input into [][]byte
 
+	var matrix [][]byte 	
+	lines := strings.Split(input, "\n")
+
+	if lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	ops := strings.Fields(lines[len(lines)-1])
+	lines = lines[:len(lines)-1]
+
+	for _, line := range lines {
+		matrix = append(matrix, []byte(line))
 	}
 
 
-}
+	nCols := len(matrix[0])
+	nRows := len(matrix)
+	
+	var transformed []string
+	for col := range nCols {
+		var values []byte
+		for row := range nRows {
+			value := matrix[row][col]
+			if value != WHITESPACE {
+				values = append(values, matrix[row][col])
+			}
+		}
 
-func SumCephalodHomework(homework string) int {
-	var total int
+		transformed = append(transformed, string(values))
+	}
+	var total int	
+	var index int
+	for _, op := range(ops) {
+		var current int
+		if op == "*" {
+			current++
+		}
 
-	equations := parseInput(homework)
-	for _, equation := range equations {
-		fmt.Printf("%v\n", equation)
-		solution := equation.Solve()
-		total += solution 
-		fmt.Printf("%v\n",solution)
+		for index < len(transformed) && transformed[index] != "" {
+			num, err := strconv.Atoi(transformed[index])
+			if err != nil {
+				panic("")
+			}
+
+			switch op {
+			case "+":
+				current += num	
+			case "*":
+				current *= num 
+			default:
+				panic("")
+			}
+			index++
+		}
+		total += current
+		index++
 	}
 	return total
 }
@@ -107,12 +146,10 @@ func (e Equation) Solve() int {
 
 	switch e.op {
 	case ADD: 
-		fmt.Println("Adding")
 		for _, n := range e.numbers {
 			total += n
 		}
 	case MUL:
-		fmt.Println("Multiplying")
 		total++
 		for _, n := range e.numbers {
 			total *= n

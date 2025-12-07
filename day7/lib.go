@@ -70,49 +70,48 @@ func GetNSplits(manifoldDiagram [][]byte) int {
 
 
 }
-// Gets the number of timelines of a single particle
-func GetNTimelines(manifoldDiagram [][]byte) int  {
-	var stack []Point
-	var finalPoints []Point
 
-	start := findStart(manifoldDiagram)	
-	stack = append(stack, start)
 
-	for len(stack) != 0 {
-		point := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-
-		nextPoint := NewPoint(point.row + 1, point.col)
-		
-		// Base case: if we go past the end we have completed one timeline
-		if nextPoint.row >= len(manifoldDiagram) {
-			finalPoints = append(finalPoints, point)
-			continue
-		}
-
-		switch manifoldDiagram[nextPoint.row][nextPoint.col] {
-		// We can just carry on, the timeline does not need to split
-		case EMPTY:
-			stack = append(stack, nextPoint)
-			continue
-		case BARRIER: // The time line splits once
-			left := NewPoint(nextPoint.row, nextPoint.col-1)
-			right := NewPoint(nextPoint.row, nextPoint.col+1)
-			
-			if left.col >=0 {
-				stack = append(stack, left)
-			}
-			if right.col < len(manifoldDiagram[0]) {
-				stack = append(stack, right)
-			}
-			continue
-		default:
-			panic("unrecognised symbol")
-		}
-	}
-	return len(finalPoints)
+func GetNTimelines(diagram [][]byte) int {
+	start := findStart(diagram)
+	visited := make(map[Point]int)
+	return getFutureTimelines(start, diagram, visited)
 }
 
+func getFutureTimelines(point Point, diagram [][]byte, visited map[Point]int) int {
+	// To make this run quickly
+	if timelines, ok := visited[point]; ok {
+		return timelines
+	}
+
+	nextPoint := NewPoint(point.row + 1, point.col)
+	if nextPoint.row >= len(diagram) {
+		return 1
+	}
+
+	switch diagram[nextPoint.row][nextPoint.col] {
+	case EMPTY:
+		timelines := getFutureTimelines(nextPoint, diagram, visited)
+		visited[point] = timelines
+		return timelines
+	case BARRIER:
+		var timelines int
+		left := NewPoint(nextPoint.row, nextPoint.col-1)
+		if left.col >=0 {
+			timelines+= getFutureTimelines(left, diagram, visited)
+
+		}
+		right := NewPoint(nextPoint.row, nextPoint.col+1)
+		
+		if right.col < len(diagram[0]) {
+			timelines+= getFutureTimelines(right, diagram, visited)
+		}
+		visited[point]= timelines
+		return timelines
+	default:
+		panic("unknown char")
+	}
+}
 func parseInput(input string) [][]byte {
 	var diagram [][]byte
 
