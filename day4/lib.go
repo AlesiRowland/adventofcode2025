@@ -12,83 +12,70 @@ type Point struct {
 	x, y int
 }
 
-
-func CountAccessibleRolls(input string) int {
-	// This is essentially a depth first search where we need to remember where we've been and if the roll has already been removed.
-	floor := parseInput(input)
-
-	var total int
-
-	nRows := len(floor)
-	if nRows == 0 {
-		return 0
-	}
-	nCols := len(floor[0])
-	if nCols == 0 {
-		panic("For now..") 
-	}
-
-	for x := range nRows {
-		for y := range nCols {
-			point := Point {x, y}
-			if hasRoll(point, floor) && len(getAdjacentRolls(floor, point, nil)) < 4 {
-				total += 1
-			}
-		}
-	}
-	return total
+func (p Point) equals(other Point) bool {
+	return p.x == other.x && p.y == other.y
 }
 
-func GetNumberOfAccessibleRolls(input string) int {
-	floor := parseInput(input)
+func CountAccessibleRolls(input string) int {
+	return len(GetAccessibleRolls(parseInput(input)))
+}
 
-	var total int
+func GetAccessibleRolls(floor [][]byte) []Point {
+
+	var points []Point
 	for row := range floor {
 		for col := 0; col < len(floor[row]); col++ {
 			point := Point {x: row, y: col}
-			if hasRoll(point, floor) {	
-				var adjacentRolls int
-				adjacentTileIndexes := getAdjacentTiles(floor, row, col)
-				for _, tile := range adjacentTileIndexes {
-					if tile == AT_SIGN_BYTE {
-						adjacentRolls += 1
-					}
-				}
-				if adjacentRolls < 4 {
-					total += 1
-				}
+			if hasRoll(point, floor) && len(getAdjacentRolls(floor, point)) < 4 {	
+				points = append(points, point) 
 			}
 		}
 	}
-	return total
+
+	return points 
+
 }
 
+
+// What if i flipped this on its head? If I know all the starting positions, why can't i then check all their surrounding nodes until i find what they have
+
 func CountAllAccessibleRolls(input string) int {
-	floor := parseInput(input)
-
 	var total int
+	var floor = parseInput(input)
+	for {
+		accessibleRollPoints := GetAccessibleRolls(floor)
+		if len(accessibleRollPoints) == 0 {
+			return total
+		}
+		total += len(accessibleRollPoints)
 
-	visited := make(map[Point]bool) // remember where we've been
-	
-	nRows := len(floor)
-	if nRows == 0 {
-		return 0
+		for _, point := range accessibleRollPoints {
+			floor[point.x][point.y] = []byte("x")[0]
+		}
 	}
-	nCols := len(floor[0])
-	if nCols == 0 {
-		panic("For now..") 
-	}
+}
+func CountAllAccessibleRollsOld(input string) int {
+	floor := parseInput(input)
+	visited := make(map[Point]bool)
 
-	for x := range nRows {
-		for y := range nCols {
-			point := Point {x, y}
-			if hasRoll(point, floor) && isRemoveable(point, nil, floor, visited) {
-				fmt.Printf("%v\n", point)
-				total += 1
+	for row := range floor {
+		for col := 0; col < len(floor[row]); col++ {
+			point := Point {x: row, y: col}
+			if hasRoll(point, floor) {
+				walk(point, floor, visited)
 			}
 		}
 	}
-	return total
+	
+
+	printResult(visited, floor)
+	var total int
+	for _, accessible := range visited {
+		if accessible {
+			total ++
+		}
+	}
+	return total 
 }
 
 
@@ -97,35 +84,53 @@ func hasRoll(point Point, floor [][]byte) bool {
 	return value == AT_SIGN_BYTE 
 }
 
-// We are starting recursively because this is confusing
-func isRemoveable(point Point, last *Point, floor[][]byte, visited map[Point]bool) bool {
+func walk(
+	point Point,
+	floor[][]byte,
+	visited map[Point]bool,
+) bool {
 	if rem, ok := visited[point]; ok {
 		return rem
 	}
 	
-	visited[point] = false
-	adjacentPoints := getAdjacentRolls(floor, point, last)
-	if len(adjacentPoints) < 4 {
-		visited[point] = true
+	adjacentRollPoints := getAdjacentRolls(floor, point)
+	
+	if len(adjacentRollPoints) < 4 {
+		visited[point] = true 
 		return visited[point]
+
+	} else{
+		visited[point] = false
 	}
 
 	var total int
-	for _, adjacentPoint := range adjacentPoints {
-		if !isRemoveable(adjacentPoint, &point, floor, visited) {
+	for _, adjacentPoint := range adjacentRollPoints {
+		if !walk(adjacentPoint, floor, visited) {
 			total += 1
 		}	
 	}
-
-	if total < 4 {
-		visited[point] = true
-	}
-
+	visited[point] = total < 4
 	return visited[point]
 }
 
 
-func getAdjacentRolls(floor [][]byte, point Point, last *Point) []Point {
+func printResult(removed map[Point]bool, floor [][]byte) {
+	for row := range floor {
+		for col := 0; col < len(floor[row]); col++ {
+			point := Point {x: row, y: col}
+			value := string(floor[point.x][point.y])
+			if rem, ok := removed[point]; ok && rem {
+				value = "x"
+			}
+			fmt.Printf("%v", value)
+			
+		}
+		fmt.Printf("\n")
+	}
+	fmt.Print("\n")
+}
+
+func getAdjacentRolls(floor [][]byte, point Point) []Point {
 	var adjacentRolls []Point
 	adjacentPoints := [8]Point{
 		Point{x: point.x - 1, y:point.y - 1},
@@ -143,44 +148,12 @@ func getAdjacentRolls(floor [][]byte, point Point, last *Point) []Point {
 			continue
 		}
 		
-		if last != nil && p.x == last.y && p.y == last.y {
-			continue
-		}
 		if !hasRoll(p, floor) {
 			continue
 		}
 		adjacentRolls = append(adjacentRolls, p)
 	}
 	return adjacentRolls
-}
-
-
-
-
-func getAdjacentTiles(floor[][]byte , row int, column int) []byte {
-	tileIndexes := [8][2]int{
-		{row - 1, column - 1},
-		{row - 1, column},
-		{row - 1, column + 1},
-		{row, column - 1},
-		{row, column + 1},
-		{row + 1, column - 1},
-		{row + 1, column},
-		{row + 1, column + 1},
-	}
-	
-	var adjacentTiles []byte
-
-	for _, index := range tileIndexes {
-		if index[0] < 0 || index[1] < 0 || index[0] >= len(floor) || index[1] >= len(floor[0]) {
-			continue
-		}
-		adjacentTiles = append(adjacentTiles, floor[index[0]][index[1]])
-	}
-	
-
-
-	return adjacentTiles 
 
 }
 
